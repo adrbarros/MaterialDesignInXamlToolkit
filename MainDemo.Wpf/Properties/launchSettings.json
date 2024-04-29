@@ -1,8 +1,0 @@
-{
-    "profiles": {
-        "Demo App": {
-            "commandName": "Project",
-            "commandLineArgs": "-p \"Smart Hint\" -t Inherit -f LeftToRight"
-        }
-    }
-}
