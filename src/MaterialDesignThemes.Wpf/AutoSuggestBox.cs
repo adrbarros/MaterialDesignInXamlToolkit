@@ -96,7 +96,11 @@ public class AutoSuggestBox : TextBox
         set => SetValue(SelectedItemProperty, value);
     }
     public static readonly DependencyProperty SelectedItemProperty =
-        DependencyProperty.Register(nameof(SelectedItem), typeof(object), typeof(AutoSuggestBox), new PropertyMetadata(default(object)));
+        DependencyProperty.Register(
+            nameof(SelectedItem),
+            typeof(object),
+            typeof(AutoSuggestBox),
+            new FrameworkPropertyMetadata(default(object), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
 
 
     public object SelectedValue
@@ -254,6 +258,7 @@ public class AutoSuggestBox : TextBox
         {
             CaretIndex = Text.Length;
         }
+        SetCurrentValue(SelectedItemProperty, selectedValue);
         CloseAutoSuggestionPopUp();
         var args = new RoutedPropertyChangedEventArgs<object?>(oldValue, Text)
         {
@@ -268,7 +273,9 @@ public class AutoSuggestBox : TextBox
         if (_autoSuggestBoxList is null || Suggestions is null)
             return;
         ICollectionView collectionView = CollectionViewSource.GetDefaultView(Suggestions);
-        if (collectionView.IsCurrentBeforeFirst)
+
+        // If we're at the first item, wrap around to the last.
+        if (collectionView.CurrentPosition == 0)
             collectionView.MoveCurrentToLast();
         else
             collectionView.MoveCurrentToPrevious();
@@ -280,7 +287,10 @@ public class AutoSuggestBox : TextBox
         if (_autoSuggestBoxList is null || Suggestions is null)
             return;
         ICollectionView collectionView = CollectionViewSource.GetDefaultView(Suggestions);
-        if (collectionView.IsCurrentAfterLast)
+        int itemCount = collectionView.Cast<object>().Count();
+
+        // If we're at the last item, wrap around to the first.
+        if (collectionView.CurrentPosition == itemCount - 1)
             collectionView.MoveCurrentToFirst();
         else
             collectionView.MoveCurrentToNext();

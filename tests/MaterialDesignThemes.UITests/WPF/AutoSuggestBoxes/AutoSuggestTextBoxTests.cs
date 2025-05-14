@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using MaterialDesignThemes.UITests.Samples.AutoSuggestBoxes;
 using MaterialDesignThemes.UITests.Samples.AutoSuggestTextBoxes;
 using Xunit.Sdk;
@@ -155,6 +155,79 @@ public class AutoSuggestBoxTests : TestBase
         // Assert
         Assert.False(await suggestBox.GetIsFocused());
         Assert.True(await nextTextBox.GetIsFocused());
+
+        recorder.Success();
+    }
+
+    [Fact]
+    [Description("Issue 3815")]
+    public async Task AutoSuggestBox_KeysUpAndDown_WrapAround()
+    {
+        await using var recorder = new TestRecorder(App);
+
+        //Arrange
+        IVisualElement<AutoSuggestBox> suggestBox = (await LoadUserControl<AutoSuggestTextBoxWithTemplate>()).As<AutoSuggestBox>();
+        IVisualElement<Popup> popup = await suggestBox.GetElement<Popup>();
+        IVisualElement<ListBox> suggestionListBox = await popup.GetElement<ListBox>();
+
+        const int delay = 50;
+
+        //Act & Assert
+        await suggestBox.MoveKeyboardFocus();
+        await suggestBox.SendInput(new KeyboardInput("e"));
+        await Task.Delay(delay);
+
+        static int? GetSuggestionCount(AutoSuggestBox autoSuggestBox)
+        {
+            int? count = autoSuggestBox.Suggestions?.OfType<object>().Count();
+            return count;
+        }
+
+        int itemCount = await suggestBox.RemoteExecute(GetSuggestionCount) ?? 0;
+
+        //Assert that initially the first item is selected
+        int selectedIndex = await suggestionListBox.GetSelectedIndex();
+        Assert.Equal(0, selectedIndex);
+        await Task.Delay(delay);
+
+        //Assert that the last item is selected after pressing ArrowUp
+        await suggestBox.SendInput(new KeyboardInput(Key.Up));
+        Assert.Equal(itemCount - 1, await suggestionListBox.GetSelectedIndex());
+        await Task.Delay(delay);
+
+        //Assert that the first item is selected after pressing ArrowDown
+        await suggestBox.SendInput(new KeyboardInput(Key.Down));
+        Assert.Equal(0, await suggestionListBox.GetSelectedIndex());
+    }
+
+    [Fact]
+    [Description("Issue 3845")]
+    public async Task AutoSuggestBox_SelectingAnItem_SetsSelectedItem()
+    {
+        await using var recorder = new TestRecorder(App);
+
+        //Arrange
+        IVisualElement userControl = await LoadUserControl<AutoSuggestTextBoxWithCollectionView>();
+        IVisualElement<AutoSuggestBox> suggestBox = await userControl.GetElement<AutoSuggestBox>();
+        IVisualElement<Popup> popup = await suggestBox.GetElement<Popup>();
+        IVisualElement<ListBox> suggestionListBox = await popup.GetElement<ListBox>();
+
+        //Act
+        await suggestBox.MoveKeyboardFocus();
+        await Task.Delay(50);
+        await suggestBox.SendKeyboardInput($"B{Key.Down}{Key.Enter}");
+        await Task.Delay(50);
+
+        //Assert
+        string? selectedItem = (await suggestBox.GetSelectedItem()) as string;
+        Assert.Equal("Bananas", selectedItem);
+
+        static void AssertViewModelProperty(AutoSuggestBox autoSuggestBox)
+        {
+            var viewModel = (AutoSuggestTextBoxWithCollectionViewViewModel)autoSuggestBox.DataContext;
+            Assert.Equal("Bananas", viewModel.SelectedItem);
+        }
+        await suggestBox.RemoteExecute(AssertViewModelProperty);
 
         recorder.Success();
     }
